@@ -192,9 +192,10 @@ class Sam3Processor:
         out_bbox = outputs["pred_boxes"]
         out_logits = outputs["pred_logits"]
         out_masks = outputs["pred_masks"]
-        out_probs = out_logits.sigmoid()
-        presence_score = outputs["presence_logit_dec"].sigmoid().unsqueeze(1)
-        out_probs = (out_probs * presence_score).squeeze(-1)
+        per_query_probs = out_logits.sigmoid()
+        presence_logit_raw = outputs["presence_logit_dec"]
+        presence_score = presence_logit_raw.sigmoid().unsqueeze(1)
+        out_probs = (per_query_probs * presence_score).squeeze(-1)
 
         keep = out_probs > self.confidence_threshold
         out_probs = out_probs[keep]
@@ -220,4 +221,8 @@ class Sam3Processor:
         state["masks"] = out_masks > 0.5
         state["boxes"] = boxes
         state["scores"] = out_probs
+        # Expose raw presence and per-query scores for debugging/threshold tuning
+        state["presence_logit"] = presence_logit_raw.detach()
+        state["presence_score"] = presence_score.squeeze().detach()
+        state["per_query_scores"] = per_query_probs.squeeze(-1).detach()
         return state
